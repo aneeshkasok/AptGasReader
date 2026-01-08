@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apartment Gas Meter</title>
+<link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#ffffff">
+</head>
+
+<body>
+
+<div id="login" class="card">
+  <h2>Caretaker Login</h2>
+  <input id="pin" type="password" placeholder="Enter PIN">
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="app" class="hidden">
+
+  <h2>Gas Meter</h2>
+
+  <div class="card">
+    <input id="month" type="month">
+    <input id="rate" type="number" placeholder="Rate per unit">
+    <button onclick="loadMonth()">Load Month</button>
+  </div>
+
+  <div class="card">
+  <!-- Toggle button -->
+  <button onclick="toggleAddFlat()">+ Add Flat</button>
+
+  <!-- Hidden form -->
+  <div id="addFlatForm" class="hidden">
+    <input id="keyField" placeholder="2165990">
+    <input id="flatNo" placeholder="101">
+    <input id="sqft" type="number" placeholder="1224">
+    <input id="ownerName" placeholder="Owner Name">
+    <button onclick="addFlat()">Save Flat</button>
+  </div>
+</div>
+
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Flat</th>
+          <th>Previous</th>
+          <th>Current</th>
+          <th>Units</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <button onclick="exportCSV()">Export CSV</button>
+  </div>
+
+</div>
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="utils.js"></script>
+<script src="app.js"></script>
+
+<script>
+  window.onload = () => {
+    initDB();   // ✅ DB is ready BEFORE login
+    // Register service worker for PWA offline support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('Service worker registered.', reg);
+      }).catch(err => console.warn('SW registration failed:', err));
+    }
+  };
+</script>
+
+</body>
+</html>

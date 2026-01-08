@@ -1,0 +1,67 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f4f7;
+  padding: 12px;
+}
+
+/* CARD */
+.card {
+  background: #ffffff;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+/* HEADINGS */
+.card h2,
+.card h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+/* INPUTS & BUTTONS */
+input,
+button {
+  width: 100%;
+  box-sizing: border-box;   /* 🔴 IMPORTANT FIX */
+  padding: 10px;
+  margin-top: 8px;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+input {
+  border: 1px solid #ccc;
+}
+
+button {
+  background: #0B3C75;
+  color: #fff;
+  border: none;
+  margin-top: 14px;
+}
+
+/* TABLE */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+.flats-td td input{
+    width: 90%;
+}
+
+/* HIDE */
+.hidden {
+  display: none;
+}
+#addFlatForm {
+  margin-top: 10px;
+}
