@@ -1,15 +1,15 @@
 const CACHE_NAME = 'gasreading-v1';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/app.js',
-  '/db.js',
-  '/utils.js',
-  '/auth.js',
-  '/manifest.json',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg'
+  './',
+  './index.html',
+  './styles.css',
+  './app.js',
+  './db.js',
+  './utils.js',
+  './auth.js',
+  './manifest.json',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg'
 ];
 
 self.addEventListener('install', event => {
