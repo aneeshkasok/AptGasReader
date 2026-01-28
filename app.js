@@ -1,5 +1,6 @@
 let currentMonth = "";
 let rate = 0;
+let editingFlatKey = null; // Track if we're editing a flat
 
 // Cache frequently used DOM elements to avoid repeated lookups
 const monthEl = document.getElementById("month");
@@ -51,6 +52,7 @@ function addFlat() {
   document.getElementById("sqft").value = "";
   document.getElementById("ownerName").value = "";
 
+  editingFlatKey = null;
   loadFlats(); // refresh table
   // hide form after save
   document.getElementById("addFlatForm").classList.add("hidden");
@@ -59,6 +61,23 @@ function addFlat() {
 function toggleAddFlat() {
   const form = document.getElementById("addFlatForm");
   form.classList.toggle("hidden");
+  if (form.classList.contains("hidden")) {
+    editingFlatKey = null;
+    clearFlatForm();
+  }
+}
+
+function cancelEditFlat() {
+  editingFlatKey = null;
+  clearFlatForm();
+  document.getElementById("addFlatForm").classList.add("hidden");
+}
+
+function clearFlatForm() {
+  document.getElementById("keyField").value = "";
+  document.getElementById("flatNo").value = "";
+  document.getElementById("sqft").value = "";
+  document.getElementById("ownerName").value = "";
 }
 
 function loadFlats() {
@@ -122,11 +141,35 @@ function drawRow(flat, data) {
   tdAmount.id = `a_${flat.key}`;
   tdAmount.textContent = (data.amount != null) ? Number(data.amount).toFixed(2) : "";
 
+  const tdActions = document.createElement("td");
+  const editBtn = document.createElement("button");
+  editBtn.textContent = "Edit";
+  editBtn.style.marginRight = "5px";
+  editBtn.style.padding = "5px 10px";
+  editBtn.style.background = "#4CAF50";
+  editBtn.style.color = "white";
+  editBtn.style.border = "none";
+  editBtn.style.cursor = "pointer";
+  editBtn.onclick = () => editFlat(flat);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "Delete";
+  deleteBtn.style.padding = "5px 10px";
+  deleteBtn.style.background = "#f44336";
+  deleteBtn.style.color = "white";
+  deleteBtn.style.border = "none";
+  deleteBtn.style.cursor = "pointer";
+  deleteBtn.onclick = () => deleteFlat(flat.key);
+
+  tdActions.appendChild(editBtn);
+  tdActions.appendChild(deleteBtn);
+
   tr.appendChild(tdFlat);
   tr.appendChild(tdPrev);
   tr.appendChild(tdCurr);
   tr.appendChild(tdUnits);
   tr.appendChild(tdAmount);
+  tr.appendChild(tdActions);
 
   rowsEl.appendChild(tr);
 }
@@ -157,6 +200,33 @@ function calc(flatKey) {
     rate,
     amount
   });
+}
+
+function editFlat(flat) {
+  editingFlatKey = flat.key;
+  document.getElementById("keyField").value = flat.key;
+  document.getElementById("flatNo").value = flat.flat;
+  document.getElementById("sqft").value = flat.sqft || "";
+  document.getElementById("ownerName").value = flat.name || "";
+  document.getElementById("addFlatForm").classList.remove("hidden");
+}
+
+function deleteFlat(flatKey) {
+  if (!confirm("Are you sure you want to delete this flat? All readings will remain in the system.")) {
+    return;
+  }
+
+  if (!db) {
+    alert("Database not ready");
+    return;
+  }
+
+  db.transaction("flats", "readwrite")
+    .objectStore("flats")
+    .delete(flatKey);
+
+  loadFlats(); // refresh table
+  alert("Flat deleted successfully");
 }
 
 function scheduleWrite(flatKey, record) {
@@ -197,7 +267,10 @@ function exportCSV() {
     let done = 0;
     rowsData.forEach(r => {
       flatsStore.get(r.flatKey).onsuccess = f => {
-        csv += `${r.flatKey},"<Utility Pinnacle>","<${f.target.result.flat}>",${f.target.result.sqft},"Utility",${f.target.result.name},0,305006,${r.amount},${billingDate},"${r.curr}-${r.prev}*2.6*${r.rate}"\n`;
+        const flatData = f.target.result;
+        if (flatData) {
+          csv += `${r.flatKey},"<Utility Pinnacle>","<${flatData.flat}>",${flatData.sqft},"Utility",${flatData.name},0,305006,${r.amount},${billingDate},"${r.curr}-${r.prev}*2.6*${r.rate}"\n`;
+        }
         if (++done === rowsData.length) {
           downloadCSV(`gas_${currentMonth}.csv`, csv);
         }
