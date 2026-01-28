@@ -31,6 +31,7 @@ function addFlat() {
   const flat = document.getElementById("flatNo").value.trim();
   const sqftVal = document.getElementById("sqft").value;
   const name = document.getElementById("ownerName").value.trim();
+  const mobile = document.getElementById("mobileNumber").value.trim();
 
   if (!key || !flat) {
     alert("KeyField and Flat are required");
@@ -43,7 +44,8 @@ function addFlat() {
       key: key,
       flat: flat,
       sqft: sqftVal,
-      name: name
+      name: name,
+      mobile: mobile
     });
 
   // ✅ CLEAR INPUTS (correct way)
@@ -51,6 +53,7 @@ function addFlat() {
   document.getElementById("flatNo").value = "";
   document.getElementById("sqft").value = "";
   document.getElementById("ownerName").value = "";
+  document.getElementById("mobileNumber").value = "";
 
   editingFlatKey = null;
   loadFlats(); // refresh table
@@ -78,6 +81,7 @@ function clearFlatForm() {
   document.getElementById("flatNo").value = "";
   document.getElementById("sqft").value = "";
   document.getElementById("ownerName").value = "";
+  document.getElementById("mobileNumber").value = "";
 }
 
 function loadFlats() {
@@ -142,25 +146,54 @@ function drawRow(flat, data) {
   tdAmount.textContent = (data.amount != null) ? Number(data.amount).toFixed(2) : "";
 
   const tdActions = document.createElement("td");
+  tdActions.style.whiteSpace = "nowrap";
+  tdActions.style.display = "flex";
+  tdActions.style.gap = "2px";
+  tdActions.style.alignItems = "center";
+  
+  const callBtn = document.createElement("button");
+  callBtn.textContent = "📞";
+  callBtn.style.marginRight = "5px";
+  callBtn.style.padding = "3px 8px";
+  callBtn.style.background = "transparent";
+  callBtn.style.color = "white";
+  callBtn.style.border = "none";
+  callBtn.style.cursor = "pointer";
+  callBtn.style.fontSize = "16px";
+  callBtn.title = "Call";
+  if (flat.mobile) {
+    callBtn.onclick = () => window.location.href = `tel:${flat.mobile}`;
+  } else {
+    callBtn.disabled = true;
+    callBtn.style.cursor = "not-allowed";
+    callBtn.style.opacity = "0.5";
+    callBtn.title = "No mobile number";
+  }
+
   const editBtn = document.createElement("button");
-  editBtn.textContent = "Edit";
+  editBtn.textContent = "✏️";
   editBtn.style.marginRight = "5px";
-  editBtn.style.padding = "5px 10px";
-  editBtn.style.background = "#4CAF50";
+  editBtn.style.padding = "3px 8px";
+  editBtn.style.background = "transparent";
   editBtn.style.color = "white";
   editBtn.style.border = "none";
   editBtn.style.cursor = "pointer";
+  editBtn.style.fontSize = "16px";
+  editBtn.title = "Edit";
   editBtn.onclick = () => editFlat(flat);
 
   const deleteBtn = document.createElement("button");
-  deleteBtn.textContent = "Delete";
-  deleteBtn.style.padding = "5px 10px";
-  deleteBtn.style.background = "#f44336";
+  deleteBtn.textContent = "🗑️";
+  deleteBtn.style.padding = "3px 8px";
+  deleteBtn.style.background = "transparent";
   deleteBtn.style.color = "white";
   deleteBtn.style.border = "none";
   deleteBtn.style.cursor = "pointer";
+  deleteBtn.style.fontSize = "16px";
+  deleteBtn.title = "Delete";
   deleteBtn.onclick = () => deleteFlat(flat.key);
 
+  tdActions.appendChild(callBtn);
   tdActions.appendChild(editBtn);
   tdActions.appendChild(deleteBtn);
 
@@ -208,6 +241,7 @@ function editFlat(flat) {
   document.getElementById("flatNo").value = flat.flat;
   document.getElementById("sqft").value = flat.sqft || "";
   document.getElementById("ownerName").value = flat.name || "";
+  document.getElementById("mobileNumber").value = flat.mobile || "";
   document.getElementById("addFlatForm").classList.remove("hidden");
 }
 

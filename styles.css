@@ -42,6 +42,18 @@ button {
   margin-top: 14px;
 }
 
+/* Button group for vertical alignment */
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.button-group button {
+  width: 100%;
+  margin-top: 0;
+}
+
 /* TABLE */
 table {
   width: 100%;
@@ -56,6 +68,16 @@ th, td {
 }
 .flats-td td input{
     width: 90%;
+}
+
+/* Mobile responsive table scrolling */
+@media (max-width: 768px) {
+  .card {
+    overflow-x: auto;
+  }
+  table {
+    min-width: 600px;
+  }
 }
 
 /* HIDE */
