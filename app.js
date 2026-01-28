@@ -278,3 +278,113 @@ function exportCSV() {
     });
   }
 }
+
+function backupDatabase() {
+  if (!db) {
+    alert("Database not ready");
+    return;
+  }
+
+  const backup = {
+    version: 1,
+    timestamp: new Date().toISOString(),
+    flats: [],
+    readings: []
+  };
+
+  const tx = db.transaction(["flats", "readings"], "readonly");
+  const flatsStore = tx.objectStore("flats");
+  const readingsStore = tx.objectStore("readings");
+
+  let flatsLoaded = false;
+  let readingsLoaded = false;
+
+  flatsStore.openCursor().onsuccess = e => {
+    const c = e.target.result;
+    if (c) {
+      backup.flats.push(c.value);
+      c.continue();
+    } else {
+      flatsLoaded = true;
+      if (readingsLoaded) finishBackup();
+    }
+  };
+
+  readingsStore.openCursor().onsuccess = e => {
+    const c = e.target.result;
+    if (c) {
+      backup.readings.push(c.value);
+      c.continue();
+    } else {
+      readingsLoaded = true;
+      if (flatsLoaded) finishBackup();
+    }
+  };
+
+  function finishBackup() {
+    const json = JSON.stringify(backup, null, 2);
+    downloadJSON(`gasreading_backup_${new Date().toISOString().slice(0, 10)}.json`, json);
+    alert(`Backup complete!\nFlats: ${backup.flats.length}\nReadings: ${backup.readings.length}`);
+  }
+}
+
+function restoreDatabase(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const backup = JSON.parse(e.target.result);
+
+      if (!backup.version || !Array.isArray(backup.flats) || !Array.isArray(backup.readings)) {
+        alert("Invalid backup file format");
+        return;
+      }
+
+      if (!confirm(`Restore backup with ${backup.flats.length} flats and ${backup.readings.length} readings?\n\nThis will replace all current data!`)) {
+        return;
+      }
+
+      const tx = db.transaction(["flats", "readings"], "readwrite");
+      const flatsStore = tx.objectStore("flats");
+      const readingsStore = tx.objectStore("readings");
+
+      // Clear existing data
+      flatsStore.clear();
+      readingsStore.clear();
+
+      // Restore flats
+      backup.flats.forEach(flat => {
+        flatsStore.put(flat);
+      });
+
+      // Restore readings
+      backup.readings.forEach(reading => {
+        readingsStore.put(reading);
+      });
+
+      tx.oncomplete = () => {
+        alert(`Restore complete!\nRestored ${backup.flats.length} flats and ${backup.readings.length} readings.`);
+        document.getElementById('restoreFile').value = '';
+        loadFlats();
+      };
+
+      tx.onerror = () => {
+        alert('Error restoring backup: ' + tx.error);
+      };
+    } catch (err) {
+      console.error('Restore error:', err);
+      alert('Error parsing backup file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function downloadJSON(filename, content) {
+  const blob = new Blob([content], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}

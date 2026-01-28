@@ -61,6 +61,9 @@
 
   <div class="card">
     <button onclick="exportCSV()">Export CSV</button>
+    <button onclick="backupDatabase()" style="margin-left: 10px; background: #2196F3;">Backup Database</button>
+    <button onclick="document.getElementById('restoreFile').click()" style="margin-left: 10px; background: #FF9800;">Restore Database</button>
+    <input id="restoreFile" type="file" accept=".json" style="display: none;" onchange="restoreDatabase(event)">
   </div>
 
 </div>
