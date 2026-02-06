@@ -145,6 +145,24 @@ function drawRow(flat, data) {
   tdAmount.id = `a_${flat.key}`;
   tdAmount.textContent = (data.amount != null) ? Number(data.amount).toFixed(2) : "";
 
+  // Waste collected column (Yes / No)
+  const tdWaste = document.createElement("td");
+  const selectWaste = document.createElement("select");
+  selectWaste.id = `w_${flat.key}`;
+  const optYes = document.createElement("option");
+  optYes.value = "Yes";
+  optYes.text = "Yes";
+  const optNo = document.createElement("option");
+  optNo.value = "No";
+  optNo.text = "No";
+  selectWaste.appendChild(optYes);
+  selectWaste.appendChild(optNo);
+  // ensure value is either Yes/No
+  const initialWaste = (data.wasteCollected === true || data.wasteCollected === "Yes") ? "Yes" : "No";
+  selectWaste.value = initialWaste;
+  selectWaste.addEventListener("change", () => saveWaste(flat.key));
+  tdWaste.appendChild(selectWaste);
+
   const tdActions = document.createElement("td");
   tdActions.style.whiteSpace = "nowrap";
   tdActions.style.display = "flex";
@@ -202,6 +220,7 @@ function drawRow(flat, data) {
   tr.appendChild(tdCurr);
   tr.appendChild(tdUnits);
   tr.appendChild(tdAmount);
+  tr.appendChild(tdWaste);
   tr.appendChild(tdActions);
 
   rowsEl.appendChild(tr);
@@ -210,8 +229,10 @@ function drawRow(flat, data) {
 function calc(flatKey) {
   const p = parseFloat(document.getElementById(`p_${flatKey}`).value || 0);
   const c = parseFloat(document.getElementById(`c_${flatKey}`).value || 0);
+  const wasteVal = document.getElementById(`w_${flatKey}`) ? document.getElementById(`w_${flatKey}`).value : "No";
+
   if (c < p) {
-    // keep previous values if invalid input
+    // keep previous values if invalid input — do not overwrite units/amount
     return;
   }
 
@@ -231,7 +252,8 @@ function calc(flatKey) {
     curr: c,
     units,
     rate,
-    amount
+    amount,
+    wasteCollected: (wasteVal === "Yes")
   });
 }
 
@@ -278,6 +300,26 @@ function scheduleWrite(flatKey, record) {
   writeTimers.set(flatKey, t);
 }
 
+// Save only wasteCollected for the current month. This keeps other fields intact.
+function saveWaste(flatKey) {
+  if (!db) return;
+  const wEl = document.getElementById(`w_${flatKey}`);
+  const val = wEl ? (wEl.value === "Yes") : false;
+  const key = [flatKey, currentMonth];
+  const tx = db.transaction("readings", "readwrite");
+  const store = tx.objectStore("readings");
+  const req = store.get(key);
+  req.onsuccess = e => {
+    const existing = e.target.result || { flatKey, month: currentMonth, prev: 0, curr: 0, units: 0, rate: rate || 0, amount: 0 };
+    existing.wasteCollected = val;
+    store.put(existing);
+  };
+  req.onerror = () => {
+    // Fallback: put a minimal record
+    store.put({ flatKey, month: currentMonth, prev: 0, curr: 0, units: 0, rate: rate || 0, amount: 0, wasteCollected: val });
+  };
+}
+
 function exportCSV() {
   let csv = "KeyField,Block,Flat,SquareFeet,Category,Name,CurrentDue,AccountNo*,Amount*,InvoiceDate(DD/MM/YYYY)*,Comment*\n";
   const rowsData = [];
@@ -303,13 +345,182 @@ function exportCSV() {
       flatsStore.get(r.flatKey).onsuccess = f => {
         const flatData = f.target.result;
         if (flatData) {
-          csv += `${r.flatKey},"<Utility Pinnacle>","<${flatData.flat}>",${flatData.sqft},"Utility",${flatData.name},0,305006,${r.amount},${billingDate},"${r.curr}-${r.prev}*2.6*${r.rate}"\n`;
+          csv += `${r.flatKey},"<Utility Pinnacle>","<${flatData.flat}>",${flatData.sqft},"Utility",${flatData.name},0,302003,${r.amount},${billingDate},"${r.curr}-${r.prev}*2.6*${r.rate}"\n`;
         }
         if (++done === rowsData.length) {
           downloadCSV(`gas_${currentMonth}.csv`, csv);
         }
       };
     });
+  }
+}
+
+// Email CSV: tries Web Share API with a File, falls back to clipboard + mailto or finally downloads
+function emailCSV() {
+  let csv = "KeyField,Block,Flat,SquareFeet,Category,Name,CurrentDue,AccountNo*,Amount*,InvoiceDate(DD/MM/YYYY)*,Comment*\n";
+  const rowsData = [];
+  const tx = db.transaction(["readings", "flats"], "readonly");
+  const readingsStore = tx.objectStore("readings");
+  const flatsStore = tx.objectStore("flats");
+  const billingDate = getFirstDayOfMonth(currentMonth);
+
+  readingsStore.openCursor().onsuccess = e => {
+    const c = e.target.result;
+    if (!c) return buildEmail();
+
+    if (c.value.month === currentMonth) {
+      rowsData.push(c.value);
+    }
+    c.continue();
+  };
+
+  function buildEmail() {
+    if (!rowsData.length) return alert("No data for this month");
+
+    let done = 0;
+    rowsData.forEach(r => {
+      flatsStore.get(r.flatKey).onsuccess = f => {
+        const flatData = f.target.result;
+        if (flatData) {
+          csv += `${r.flatKey},"<Utility Pinnacle>","<${flatData.flat}>",${flatData.sqft},"Utility",${flatData.name},0,302003,${r.amount},${billingDate},"${r.curr}-${r.prev}*2.6*${r.rate}"\n`;
+        }
+        if (++done === rowsData.length) {
+          const filename = `gas_${currentMonth}.csv`;
+          const file = new File([csv], filename, { type: "text/csv" });
+
+          // Try Web Share API with files
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({ files: [file], title: filename, text: `Gas readings for ${currentMonth}` })
+              .catch(() => fallbackMail(csv, filename));
+          } else if (navigator.share) {
+            // Share as text (may be limited in length)
+            navigator.share({ title: filename, text: csv.slice(0, 65500) })
+              .catch(() => fallbackMail(csv, filename));
+          } else {
+            fallbackMail(csv, filename);
+          }
+        }
+      };
+    });
+  }
+
+  async function fallbackMail(csvText, filename) {
+    try {
+      await navigator.clipboard.writeText(csvText);
+      const preview = csvText.split("\n").slice(0, 10).join("\n");
+      const subject = encodeURIComponent(`Gas readings ${currentMonth}`);
+      const body = encodeURIComponent(`I've copied ${filename} to clipboard. Paste it into your email or attach it.\n\nPreview:\n${preview}`);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    } catch (err) {
+      // Final fallback: download and inform the user
+      downloadCSV(filename, csvText);
+      alert("Couldn't directly email or copy to clipboard. The CSV was downloaded; attach it to your email.");
+    }
+  }
+}
+
+// Export Waste CSV: amount based on wasteCollected flag (260 if Yes, 0 if No), AccountNo 305007
+function exportWasteCSV() {
+  let csv = "KeyField,Block,Flat,SquareFeet,Category,Name,CurrentDue,AccountNo*,Amount*,InvoiceDate(DD/MM/YYYY)*,Comment*\n";
+  const rowsData = [];
+  const tx = db.transaction(["readings", "flats"], "readonly");
+  const readingsStore = tx.objectStore("readings");
+  const flatsStore = tx.objectStore("flats");
+  const billingDate = getFirstDayOfMonth(currentMonth);
+
+  readingsStore.openCursor().onsuccess = e => {
+    const c = e.target.result;
+    if (!c) return build();
+
+    if (c.value.month === currentMonth) {
+      rowsData.push(c.value);
+    }
+    c.continue();
+  };
+
+  function build() {
+    if (!rowsData.length) return alert("No data for this month");
+
+    let done = 0;
+    rowsData.forEach(r => {
+      flatsStore.get(r.flatKey).onsuccess = f => {
+        const flatData = f.target.result;
+        if (flatData) {
+          // Amount is 260 if waste collected, 0 otherwise
+          const wasteAmount = r.wasteCollected ? 260 : 0;
+          csv += `${r.flatKey},"<Utility Pinnacle>","<${flatData.flat}>",${flatData.sqft},"Utility",${flatData.name},0,305006,${wasteAmount},${billingDate},"Waste collected: ${r.wasteCollected ? 'Yes' : 'No'}"\n`;
+        }
+        if (++done === rowsData.length) {
+          downloadCSV(`gas_waste_${currentMonth}.csv`, csv);
+        }
+      };
+    });
+  }
+}
+
+// Email Waste CSV: tries Web Share API with waste-based amount, falls back to clipboard + mailto or downloads
+function emailWasteCSV() {
+  let csv = "KeyField,Block,Flat,SquareFeet,Category,Name,CurrentDue,AccountNo*,Amount*,InvoiceDate(DD/MM/YYYY)*,Comment*\n";
+  const rowsData = [];
+  const tx = db.transaction(["readings", "flats"], "readonly");
+  const readingsStore = tx.objectStore("readings");
+  const flatsStore = tx.objectStore("flats");
+  const billingDate = getFirstDayOfMonth(currentMonth);
+
+  readingsStore.openCursor().onsuccess = e => {
+    const c = e.target.result;
+    if (!c) return buildEmail();
+
+    if (c.value.month === currentMonth) {
+      rowsData.push(c.value);
+    }
+    c.continue();
+  };
+
+  function buildEmail() {
+    if (!rowsData.length) return alert("No data for this month");
+
+    let done = 0;
+    rowsData.forEach(r => {
+      flatsStore.get(r.flatKey).onsuccess = f => {
+        const flatData = f.target.result;
+        if (flatData) {
+          // Amount is 260 if waste collected, 0 otherwise
+          const wasteAmount = r.wasteCollected ? 260 : 0;
+          csv += `${r.flatKey},"<Utility Pinnacle>","<${flatData.flat}>",${flatData.sqft},"Utility",${flatData.name},0,305006,${wasteAmount},${billingDate},"Waste collected: ${r.wasteCollected ? 'Yes' : 'No'}"\n`;
+        }
+        if (++done === rowsData.length) {
+          const filename = `gas_waste_${currentMonth}.csv`;
+          const file = new File([csv], filename, { type: "text/csv" });
+
+          // Try Web Share API with files
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({ files: [file], title: filename, text: `Gas waste readings for ${currentMonth}` })
+              .catch(() => fallbackMail(csv, filename));
+          } else if (navigator.share) {
+            // Share as text (may be limited in length)
+            navigator.share({ title: filename, text: csv.slice(0, 65500) })
+              .catch(() => fallbackMail(csv, filename));
+          } else {
+            fallbackMail(csv, filename);
+          }
+        }
+      };
+    });
+  }
+
+  async function fallbackMail(csvText, filename) {
+    try {
+      await navigator.clipboard.writeText(csvText);
+      const preview = csvText.split("\n").slice(0, 10).join("\n");
+      const subject = encodeURIComponent(`Waste readings ${currentMonth}`);
+      const body = encodeURIComponent(`I've copied ${filename} to clipboard. Paste it into your email or attach it.\n\nPreview:\n${preview}`);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    } catch (err) {
+      // Final fallback: download and inform the user
+      downloadCSV(filename, csvText);
+      alert("Couldn't directly email or copy to clipboard. The CSV was downloaded; attach it to your email.");
+    }
   }
 }
 

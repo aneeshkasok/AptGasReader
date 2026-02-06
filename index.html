@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Apartment Gas Meter</title>
+<title>Utility Bills</title>
 <link rel="stylesheet" href="styles.css">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#ffffff">
@@ -53,6 +53,7 @@
           <th>Current</th>
           <th>Units</th>
           <th>Amount</th>
+          <th>Waste Collected</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -62,7 +63,10 @@
 
   <div class="card">
     <div class="button-group">
-      <button onclick="exportCSV()">Export CSV</button>
+      <button onclick="exportCSV()">Export Gas Reading CSV</button>
+      <button onclick="exportWasteCSV()" style="background: #FF5722;">Export Waste Collection CSV</button>
+      <button onclick="emailCSV()">Email Gas Reading CSV</button>
+      <button onclick="emailWasteCSV()" style="background: #FF5722;">Email Waste Collection CSV</button>
       <button onclick="backupDatabase()" style="background: #2196F3;">Backup Database</button>
       <button onclick="document.getElementById('restoreFile').click()" style="background: #FF9800;">Restore Database</button>
     </div>
